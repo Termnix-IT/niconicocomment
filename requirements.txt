@@ -1,0 +1,5 @@
+pyqt6
+mss
+pywin32
+ollama
+pillow
