@@ -94,8 +94,10 @@ python main.py
 | `OLLAMA_MODEL` | `"llava"` | 使用するモデル名 |
 | `OLLAMA_HOST` | `"http://localhost:11434"` | Ollama サーバーのアドレス |
 | `CAPTURE_INTERVAL_MS` | `8000` | 分析の間隔（ミリ秒） |
+| `CAPTURE_MAX_DIMENSION` | `768` | LLM 送信前にキャプチャ画像の長辺をこのpxに縮小（小さくするほど分析が速くなる） |
 | `COMMENT_SPEED_MIN/MAX` | `4 / 8` | コメントの流れる速さ（px/tick） |
 | `LANE_COUNT` | `10` | 同時表示できる行数 |
+| `PERF_LOG_ENABLED` | `False` | パフォーマンス計測ログ（`perf.csv`）の有効化 |
 
 ### モデルの切り替え
 
@@ -116,19 +118,61 @@ ollama pull llava:13b
 
 ---
 
+## パフォーマンスチューニング
+
+分析が遅いと感じたら、以下の順で調整するのが効果的です。
+
+### 1. キャプチャ画像のサイズを下げる（最も効きやすい）
+
+`config.py` の `CAPTURE_MAX_DIMENSION` を小さくすると、LLM に送る画像が縮小されてビジョンモデルの推論が速くなります。
+（リサイズは送信前のみで、画面表示には影響しません）
+
+```python
+CAPTURE_MAX_DIMENSION = 768   # デフォルト（バランス）
+CAPTURE_MAX_DIMENSION = 512   # より高速
+CAPTURE_MAX_DIMENSION = 384   # かなり高速だが画面の細部は読み取りづらくなる
+```
+
+### 2. 軽量モデルに切り替える
+
+`OLLAMA_MODEL = "moondream"` にするとモデル本体が軽くなり、応答時間がさらに短くなります（精度は落ちます）。
+
+### 3. 分析間隔を伸ばす
+
+設定ダイアログまたは `CAPTURE_INTERVAL_MS` で分析頻度を下げれば、CPU/GPU 負荷が直接下がります。
+
+### パフォーマンス計測（任意）
+
+ボトルネックを数値で確認したいときは、`config.py` の `PERF_LOG_ENABLED = True` に変更してアプリを起動すると、プロジェクトルートに `perf.csv` が出力されます。
+
+| event | 内容 |
+|-------|------|
+| `capture` | スクリーンキャプチャ＋リサイズ＋PNGエンコード時間（extra に内訳） |
+| `analyze` | Ollama 推論時間（一番大きいはず） |
+| `tick` | アニメーションループの平均処理時間（1秒ごとに集約） |
+| `paint` | 描画時間（1秒ごとに集約） |
+
+CSVなのでExcelやpandasで開いて中央値・最大値を見れば、どこが重いか一目でわかります。
+通常運用では `False` のままでOKです（計測自体のオーバーヘッドは小さいですが、不要な I/O を避けるため）。
+
+---
+
 ## ファイル構成
 
 ```
 niconico_inspire_comment_local/
-├── main.py            # エントリポイント・ウィンドウ選択
-├── overlay.py         # PyQt6 透過オーバーレイ本体
-├── capture.py         # スクリーンキャプチャ
-├── analyzer.py        # Ollama (LLaVA) 連携
-├── comment_lane.py    # コメントアニメーション管理
-├── config.py          # 設定値（OLLAMA_MODEL 等）
+├── main.py             # エントリポイント・ウィンドウ選択・トレイアイコン
+├── overlay.py          # PyQt6 透過オーバーレイ本体・QThreadワーカー
+├── capture.py          # スクリーンキャプチャ＋送信前リサイズ
+├── analyzer.py         # Ollama (LLaVA) 連携
+├── comment_lane.py     # コメントアニメーション管理
+├── config.py           # 起動時の固定設定（モデル名、画像サイズ上限など）
+├── settings.py         # 実行時設定の dataclass + JSON 永続化
+├── settings_dialog.py  # トレイメニューから開く設定ダイアログ
+├── perf_log.py         # パフォーマンス計測ログ（CSV出力）
 ├── requirements.txt
 └── docs/
-    └── usage.md       # 詳細な使用方法
+    └── usage.md        # 詳細な使用方法
 ```
 
 ---

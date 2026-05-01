@@ -31,7 +31,7 @@ OUTLINE_COLOR = (0, 0, 0, 200)  # semi-transparent black
 OUTLINE_WIDTH = 3
 
 # Performance logging — writes CSV rows to PERF_LOG_PATH (relative to project dir)
-PERF_LOG_ENABLED = True
+PERF_LOG_ENABLED = False  # set True to log capture/analyze/tick/paint timings to PERF_LOG_PATH
 PERF_LOG_PATH    = "perf.csv"
 
 # Ollama (local LLM — no API key required)
